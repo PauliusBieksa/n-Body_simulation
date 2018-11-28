@@ -1,0 +1,6 @@
+[submodule "lib/gif"]
+	path = lib/gif
+	url = https://github.com/ginsweater/gif-h.git
+[submodule "lib/graphics"]
+	path = lib/graphics
+	url = https://github.com/edinburgh-napier/set08116_framework.git
