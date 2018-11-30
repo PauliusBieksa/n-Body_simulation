@@ -12,12 +12,6 @@ using namespace std;
 using namespace glm;
 using namespace graphics_framework;
 
-//const double duration = 5.0f; // Duration for the simulation
-//const double dt = 1.0f / 50.0f;
-//const uint32_t n_bodies = 50;
-//const double G = 4.302e-3; // pc / M * (km/s)(km/s)
-//const double G = 6.674e-11; // N / (kg * kg) * m * m
-
 vector<Body> bodies;
 
 geometry screen_quad;
@@ -101,35 +95,73 @@ bool setup()
 	// Bind the frame
 	glBindFramebuffer(GL_FRAMEBUFFER, frame.get_buffer());
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	glDisable(GL_DEBUG_OUTPUT);
 
-	// Simulate particles
-	double time_left = DURATION;
-	while (time_left > 0.0f)
+	// Variables for measurement storage
+	int iterations = 0;
+	double total_time = 0;
+
+	// Write column headers
+	ofstream f("data.csv", ofstream::out);
+	for (int i = 1; i <= NUMBER_OF_TESTS; i++)
+		f << ", " << "Test " << i;
+	f << endl;
+
+	for (int n = 0; n < N_BODY_INCREMENTS; n++)
 	{
-		// Clear frame before rendering
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
-
-		calculate_forces(bodies);
-		for (int i = 0; i < bodies.size(); i++)
+		cout << "Starting " << NUMBER_OF_TESTS << " tests for " << N_BODIES + BODY_INCREMENT * n << " bodies." << endl;
+		f << N_BODIES + BODY_INCREMENT * n << " bodies,";
+		for (int test = 1; test <= NUMBER_OF_TESTS; test++)
 		{
-			bodies[i].step(DELTA_TIME);
-			// Render each body
-			glUniform2fv(eff.get_uniform_location("pos"), 1, value_ptr( (vec2)draw_position(bodies[i].pos)));
-			renderer::render(screen_quad);
+			// Simulate particles
+			double time_left = DURATION;
+			while (time_left > 0.0f)
+			{
+				// Clear frame before rendering
+				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
+
+				auto before = chrono::steady_clock::now();
+				calculate_forces(bodies);
+				auto after = chrono::steady_clock::now();
+				chrono::duration<double> time_spent = after - before;
+				total_time += time_spent.count();
+				iterations++;
+
+				for (int i = 0; i < bodies.size(); i++)
+				{
+					bodies[i].step(DELTA_TIME);
+					// Only render for first test
+					if (iterations == 1)
+					{
+						// Render each body
+						glUniform2fv(eff.get_uniform_location("pos"), 1, value_ptr((vec2)draw_position(bodies[i].pos)));
+						renderer::render(screen_quad);
+					}
+				}
+				time_left -= DELTA_TIME;
+
+				// Only write to gif for the first test
+				if (iterations == 1)
+				{
+					// Get image data
+					glReadPixels(0, 0, renderer::get_screen_width(), renderer::get_screen_height(), GL_RGBA, GL_UNSIGNED_BYTE, data.get());
+					// Add frame to gif
+					GifWriteFrame(gw, data.get(), renderer::get_screen_width(), renderer::get_screen_height(), 1);
+				}
+			}
+			cout << "Test " << test << " complete. Average time spent calculating forces per frame: " << total_time / (double)iterations << endl;
+			f << total_time / (double)iterations << ",";
 		}
-		time_left -= DELTA_TIME;
+		f << endl;
 
-		glReadPixels(0, 0, renderer::get_screen_width(), renderer::get_screen_height(), GL_RGBA, GL_UNSIGNED_BYTE, data.get());
-
-		// Add frame to gif
-		GifWriteFrame(gw, data.get(), renderer::get_screen_width(), renderer::get_screen_height(), 1);
 	}
+	// Close gif file and do cleanup
+	GifEnd(gw);
 
+	f.close();
 	// Unbind framebuffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-	// Close gif file and do cleanup
-	GifEnd(gw);
 	return true;
 }
 
