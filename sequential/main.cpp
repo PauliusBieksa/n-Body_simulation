@@ -62,16 +62,9 @@ bool setup()
 		screen_quad.add_buffer(tex_coords, BUFFER_INDEXES::TEXTURE_COORDS_0);
 	}
 
-	// Set up starting values for bodies
-	default_random_engine rand(RANDOM_SEED); // Seed the random generator to make sure the values are consistent
-	uniform_real_distribution<double> dist(POS_LOWER_BOUND, POS_HIGHER_BOUND);
-	uniform_real_distribution<double> m_dist(MASS_LOWER_BOUND, MASS_HIGHER_BOUND);
-	for (int i = 0; i < N_BODIES; i++)
-		bodies.push_back(Body(dvec2(dist(rand), dist(rand)), m_dist(rand)));
-
 	// Load in shaders
 	eff.add_shader("res/shaders/core.vert", GL_VERTEX_SHADER);
-	eff.add_shader("res/shaders/red.frag", GL_FRAGMENT_SHADER);
+	eff.add_shader("res/shaders/mass_shader.frag", GL_FRAGMENT_SHADER);
 	// Build effect
 	eff.build();
 
@@ -80,9 +73,6 @@ bool setup()
 	cam.set_target(vec3(0.0f, 3.0f, 0.0f));
 	cam.set_projection(quarter_pi<double>(), renderer::get_screen_aspect(), 0.1f, 1000.0f);
 
-	// Set up the gif writer
-	GifWriter *gw = new GifWriter();
-	GifBegin(gw, "simulation.gif", renderer::get_screen_width(), renderer::get_screen_height(), 1);
 	// Prepare to render to frame
 	renderer::setClearColour(0.0f, 0.0f, 0.0f);
 	renderer::set_render_target(frame);
@@ -95,7 +85,10 @@ bool setup()
 	// Bind the frame
 	glBindFramebuffer(GL_FRAMEBUFFER, frame.get_buffer());
 	glPixelStorei(GL_PACK_ALIGNMENT, 1);
+	// Disable gl debug output so performance warnings don't pollute the console output
 	glDisable(GL_DEBUG_OUTPUT);
+	// Disable grawhics output window as it is not used by the program
+	glfwHideWindow(renderer::get_window());
 
 	// Variables for measurement storage
 	int iterations = 0;
@@ -109,6 +102,19 @@ bool setup()
 
 	for (int n = 0; n < N_BODY_INCREMENTS; n++)
 	{
+		// Set up starting values for bodies
+		default_random_engine rand(RANDOM_SEED); // Seed the random generator to make sure the values are consistent
+		uniform_real_distribution<double> dist(POS_LOWER_BOUND, POS_HIGHER_BOUND);
+		uniform_real_distribution<double> m_dist(MASS_LOWER_BOUND, MASS_HIGHER_BOUND);
+		for (int i = 0; i < N_BODIES; i++)
+			bodies.push_back(Body(dvec2(dist(rand), dist(rand)), m_dist(rand)));
+
+		// Set up the gif writer
+		GifWriter *gw = new GifWriter();
+		int n_of_bodies = N_BODIES + n * BODY_INCREMENT;
+		string gif_name = "simulation_" + to_string(n_of_bodies) + ".gif";
+		GifBegin(gw, gif_name.c_str(), renderer::get_screen_width(), renderer::get_screen_height(), 1);
+
 		cout << "Starting " << NUMBER_OF_TESTS << " tests for " << N_BODIES + BODY_INCREMENT * n << " bodies." << endl;
 		f << N_BODIES + BODY_INCREMENT * n << " bodies,";
 		for (int test = 1; test <= NUMBER_OF_TESTS; test++)
@@ -131,17 +137,18 @@ bool setup()
 				{
 					bodies[i].step(DELTA_TIME);
 					// Only render for first test
-					if (iterations == 1)
+					if (test == 1)
 					{
 						// Render each body
 						glUniform2fv(eff.get_uniform_location("pos"), 1, value_ptr((vec2)draw_position(bodies[i].pos)));
+						glUniform1d(eff.get_uniform_location("normalised_mass"), ((bodies[i].mass - MASS_LOWER_BOUND) / (MASS_HIGHER_BOUND - MASS_LOWER_BOUND)));
 						renderer::render(screen_quad);
 					}
 				}
 				time_left -= DELTA_TIME;
 
 				// Only write to gif for the first test
-				if (iterations == 1)
+				if (test == 1)
 				{
 					// Get image data
 					glReadPixels(0, 0, renderer::get_screen_width(), renderer::get_screen_height(), GL_RGBA, GL_UNSIGNED_BYTE, data.get());
@@ -151,43 +158,26 @@ bool setup()
 			}
 			cout << "Test " << test << " complete. Average time spent calculating forces per frame: " << total_time / (double)iterations << endl;
 			f << total_time / (double)iterations << ",";
+
+			if (test == 1)
+			{
+				// Close gif file and do cleanup
+				GifEnd(gw);
+			}
 		}
 		f << endl;
 
 	}
-	// Close gif file and do cleanup
-	GifEnd(gw);
 
 	f.close();
 	// Unbind framebuffer
 	glBindFramebuffer(GL_FRAMEBUFFER, 0);
-
+	renderer::shutdown();
 	return true;
 }
 
 bool update(double delta_time)
 {
-
-	//auto current_time = chrono::system_clock::now();
-	//double time_accumulator = 0.0f;
-	//while (something)
-	//{
-	//	// Timekeeping
-	//	auto new_time = chrono::system_clock::now();
-	//	chrono::duration<double> frame_time = new_time - current_time;
-	//	time_accumulator += frame_time.count();
-
-	//	// Fixed delta-time loop
-	//	while (time_accumulator >= dt)
-	//	{
-	//		calculate_forces(bodies);
-	//		for (int i = 0; i < bodies.size(); i++)
-	//			bodies[i].step(dt);
-	//		time_accumulator -= dt;
-	//	}
-	//}
-
-
 	//cam.update(delta_time);
 	return true;
 }
