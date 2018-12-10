@@ -7,6 +7,7 @@
 #include "body.h"
 #include "gif.h"
 #include "main.h"
+#include "CUDA_parallel.cuh"
 
 using namespace std;
 using namespace glm;
@@ -20,32 +21,44 @@ target_camera cam;
 frame_buffer frame;
 
 
-// Calculates and updates forces for all bodies
-void calculate_forces(vector<Body> &bodies)
-{
-	for (Body &b : bodies)
-		b.force = dvec2(0.0f);
-	for (int i = 0; i < bodies.size() - 1; i++)
-		for (int j = i + 1; j < bodies.size(); j++)
-		{
-			dvec2 dir = bodies[j].pos - bodies[i].pos;
-			if (dir.x == 0 && dir.y == 0)
-				continue;
-			// Calculate force body i to body j using Newtonian gravity equation
-			dvec2 f_ij = G_CONSTANT * bodies[i].mass * bodies[j].mass * dir
-				/ pow(sqrt(dir.x * dir.x + dir.y * dir.y), 3);
-			bodies[i].force += f_ij;
-			bodies[j].force -= f_ij;
-		}
-}
-
 // Returns position converted to the range required for drawing
-dvec2 draw_position(dvec2 p)
+dvec2 drawing_position(dvec2 p)
 {
 	dvec2 dp = p;
 	dp -= dvec2(POS_LOWER_BOUND);
 	dp /= POS_HIGHER_BOUND - POS_LOWER_BOUND;
 	return dp;
+}
+
+//
+vector<double> format_to_doubles(vector<Body> bodies)
+{
+	vector<double> formated_data;
+	for (Body b : bodies)
+	{
+		formated_data.push_back(b.pos.x);
+		formated_data.push_back(b.pos.y);
+		formated_data.push_back(b.vel.x);
+		formated_data.push_back(b.vel.y);
+		formated_data.push_back(b.mass);
+	}
+	return formated_data;
+}
+
+//
+vector<Body> format_to_bodies(vector<double> dbodies)
+{
+	vector<Body> bods;
+	for (int i = 0; i < dbodies.size(); i += 5)
+	{
+		bods.push_back(Body());
+		bods[i].pos.x = dbodies[i];
+		bods[i].pos.y = dbodies[i + 1];
+		bods[i].vel.x = dbodies[i + 2];
+		bods[i].vel.y = dbodies[i + 3];
+		bods[i].mass = dbodies[i + 4];
+	}
+	return bods;
 }
 
 bool setup()
@@ -94,7 +107,7 @@ bool setup()
 	double total_time = 0;
 
 	// Write column headers
-	ofstream f("seq_data.csv", ofstream::out);
+	ofstream f("cuda_data.csv", ofstream::out);
 	for (int i = 1; i <= NUMBER_OF_TESTS; i++)
 		f << ", " << "Test " << i;
 	f << endl;
@@ -107,11 +120,12 @@ bool setup()
 		uniform_real_distribution<double> m_dist(MASS_LOWER_BOUND, MASS_HIGHER_BOUND);
 		for (int i = 0; i < N_BODIES + n * BODY_INCREMENT; i++)
 			bodies.push_back(Body(dvec2(dist(rand), dist(rand)), m_dist(rand)));
+		Par_handler ph(bodies.size());
 
 		// Set up the gif writer
 		GifWriter *gw = new GifWriter();
 		int n_of_bodies = N_BODIES + n * BODY_INCREMENT;
-		string gif_name = "seq_simulation_" + to_string(n_of_bodies) + ".gif";
+		string gif_name = "cuda_simulation_" + to_string(n_of_bodies) + ".gif";
 		GifBegin(gw, gif_name.c_str(), renderer::get_screen_width(), renderer::get_screen_height(), 1);
 
 		cout << "Starting " << NUMBER_OF_TESTS << " tests for " << N_BODIES + BODY_INCREMENT * n << " bodies." << endl;
@@ -128,20 +142,21 @@ bool setup()
 				glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
 				auto before = chrono::steady_clock::now();
-				calculate_forces(bodies);
+				vector<double> tmp = format_to_doubles(bodies);
+				ph.physics_step(tmp, DELTA_TIME);
+				bodies = format_to_bodies(tmp);
 				auto after = chrono::steady_clock::now();
 				chrono::duration<double> time_spent = after - before;
 				total_time += time_spent.count();
 				iterations++;
 
-				for (int i = 0; i < bodies.size(); i++)
+				// Only render for first test
+				if (test == 1)
 				{
-					bodies[i].step(DELTA_TIME);
-					// Only render for first test
-					if (test == 1)
+					for (int i = 0; i < bodies.size(); i++)
 					{
 						// Render each body
-						glUniform2fv(eff.get_uniform_location("pos"), 1, value_ptr((vec2)draw_position(bodies[i].pos)));
+						glUniform2fv(eff.get_uniform_location("pos"), 1, value_ptr((vec2)drawing_position(bodies[i].pos)));
 						glUniform1d(eff.get_uniform_location("normalised_mass"), ((bodies[i].mass - MASS_LOWER_BOUND) / (MASS_HIGHER_BOUND - MASS_LOWER_BOUND)));
 						renderer::render(screen_quad);
 					}
