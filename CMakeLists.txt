@@ -31,6 +31,12 @@ add_executable(SEQUENTIAL ${SOURCES})
 target_include_directories(SEQUENTIAL PRIVATE ${GRAPHICS} ${GIF_ENCODER})
 target_link_libraries(SEQUENTIAL enu_graphics_framework)
 
+#### OMP implementation ####
+file(GLOB_RECURSE SOURCES1 OMP_parallel/*.cpp OMP_parallel/*.h lib/gif/*.h)
+add_executable(OMP_PARALLEL ${SOURCES1})
+target_include_directories(OMP_PARALLEL PRIVATE ${GRAPHICS} ${GIF_ENCODER})
+target_link_libraries(OMP_PARALLEL enu_graphics_framework)
+
 #
 add_library(cuda_stuff STATIC)
 target_sources(cuda_stuff PUBLIC ${CMAKE_SOURCE_DIR}/CUDA_parallel/CUDA_parallel.cu ${CMAKE_SOURCE_DIR}/CUDA_parallel/CUDA_parallel.cuh)
@@ -38,8 +44,8 @@ target_sources(cuda_stuff PUBLIC ${CMAKE_SOURCE_DIR}/CUDA_parallel/CUDA_parallel
 #set_target_properties(cuda_stuff PROPERTIES CUDA_SEPERABLE_COMPILATION ON)
 
 #### CUDA_PARALLEL implementation ####
-file(GLOB_RECURSE SOURCES1 CUDA_parallel/*.cpp CUDA_parallel/*.h lib/gif/*.h)
-add_executable(CUDA_PARALLEL ${SOURCES1})
+file(GLOB_RECURSE SOURCES2 CUDA_parallel/*.cpp CUDA_parallel/*.h lib/gif/*.h)
+add_executable(CUDA_PARALLEL ${SOURCES2})
 target_include_directories(CUDA_PARALLEL PRIVATE ${GRAPHICS} ${GIF_ENCODER})
 target_link_libraries(CUDA_PARALLEL enu_graphics_framework cuda_stuff)
 
