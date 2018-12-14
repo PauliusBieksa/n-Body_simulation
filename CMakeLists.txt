@@ -38,8 +38,9 @@ target_include_directories(OMP_PARALLEL PRIVATE ${GRAPHICS} ${GIF_ENCODER})
 target_link_libraries(OMP_PARALLEL enu_graphics_framework)
 
 #
-add_library(cuda_stuff STATIC)
-target_sources(cuda_stuff PUBLIC ${CMAKE_SOURCE_DIR}/CUDA_parallel/CUDA_parallel.cu ${CMAKE_SOURCE_DIR}/CUDA_parallel/CUDA_parallel.cuh)
+#add_library(cuda_stuff STATIC)
+CUDA_ADD_LIBRARY(cuda_stuff STATIC)
+target_sources(cuda_stuff PRIVATE ${CMAKE_SOURCE_DIR}/CUDA_parallel/CUDA_parallel.cu PUBLIC ${CMAKE_SOURCE_DIR}/CUDA_parallel/CUDA_parallel.cuh)
 #set_target_properties(cuda_stuff PROPERTIES LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin/lib)
 #set_target_properties(cuda_stuff PROPERTIES CUDA_SEPERABLE_COMPILATION ON)
 
