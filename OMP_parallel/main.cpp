@@ -8,6 +8,7 @@
 #include "gif.h"
 #include "main.h"
 #include <omp.h>
+#include <thread>
 
 using namespace std;
 using namespace glm;
@@ -21,6 +22,7 @@ target_camera cam;
 frame_buffer frame;
 
 const uint32_t thread_count = omp_get_max_threads();
+vector<omp_lock_t> locks(N_BODIES + N_BODY_INCREMENTS * BODY_INCREMENT);
 
 // Calculates and updates forces for all bodies
 void calculate_forces(vector<Body> &bodies, uint16_t chunk_size)
@@ -37,8 +39,14 @@ void calculate_forces(vector<Body> &bodies, uint16_t chunk_size)
 			// Calculate force body i to body j using Newtonian gravity equation
 			dvec2 f_ij = G_CONSTANT * bodies[i].mass * bodies[j].mass * dir
 				/ pow(sqrt(dir.x * dir.x + dir.y * dir.y), 3);
+
+			// Use a mutex to protect from data races
+			omp_set_lock(&locks[i]);
+			omp_set_lock(&locks[j]);
 			bodies[i].force += f_ij;
 			bodies[j].force -= f_ij;
+			omp_unset_lock(&locks[i]);
+			omp_unset_lock(&locks[j]);
 		}
 }
 
@@ -53,6 +61,9 @@ dvec2 draw_position(dvec2 p)
 
 bool setup()
 {
+	for (omp_lock_t &l : locks)
+		omp_init_lock(&l);
+
 	renderer::set_screen_dimensions(SCREEN_WIDTH, SCREEN_HEIGHT);
 	frame = frame_buffer(renderer::get_screen_width(), renderer::get_screen_height());
 	// Screen quad
@@ -113,19 +124,25 @@ bool setup()
 			uniform_real_distribution<double> m_dist(MASS_LOWER_BOUND, MASS_HIGHER_BOUND);
 			for (int i = 0; i < N_BODIES + n * BODY_INCREMENT; i++)
 				bodies.push_back(Body(dvec2(dist(rand), dist(rand)), m_dist(rand)));
-
-			// Set up the gif writer
-			GifWriter *gw = new GifWriter();
 			int n_of_bodies = N_BODIES + n * BODY_INCREMENT;
-			string gif_name = "OMP_simulation_" + to_string(n_of_bodies) + ".gif";
-			GifBegin(gw, gif_name.c_str(), renderer::get_screen_width(), renderer::get_screen_height(), 1);
+
+			GifWriter *gw;
+			if (VALIDATION_OUTPUT)
+			{
+				// Set up the gif writer
+				gw = new GifWriter();
+				string gif_name = "OMP_simulation_" + to_string(n_of_bodies) + ".gif";
+				GifBegin(gw, gif_name.c_str(), renderer::get_screen_width(), renderer::get_screen_height(), 1);
+			}
 
 			cout << "Starting " << NUMBER_OF_TESTS << " tests for " << N_BODIES + BODY_INCREMENT * n << " bodies, chunk size - " << chunk << endl;
 			f << N_BODIES + BODY_INCREMENT * n << " bodies,";
-			for (int test = 1; test <= NUMBER_OF_TESTS; test++)
+			for (int test = VALIDATION_OUTPUT ? 0 : 1; test <= NUMBER_OF_TESTS; test++)
 			{
 				iterations = 0;
 				total_time = 0.0;
+
+				vector<double> all_times;
 				// Simulate particles
 				double time_left = DURATION;
 				while (time_left > 0.0f)
@@ -133,18 +150,21 @@ bool setup()
 					// Clear frame before rendering
 					glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT | GL_STENCIL_BUFFER_BIT);
 
-					auto before = chrono::steady_clock::now();
+					const auto before = chrono::system_clock::now();
 					calculate_forces(bodies, chunk);
-					auto after = chrono::steady_clock::now();
-					chrono::duration<double> time_spent = after - before;
+					const auto after = chrono::system_clock::now();
+					const chrono::duration<double> time_spent = after - before;
+					all_times.push_back(time_spent.count());
 					total_time += time_spent.count();
 					iterations++;
 
+					// Waiting a short amount of time speeds up the program overall (The OS does backgrond stuff?? Allows the CPU to cool??)
+					this_thread::sleep_for(chrono::milliseconds(110));
 					for (int i = 0; i < bodies.size(); i++)
 					{
 						bodies[i].step(DELTA_TIME);
 						// Only render for first test
-						if (test == 1)
+						if (test == 0)
 						{
 							// Render each body
 							glUniform2fv(eff.get_uniform_location("pos"), 1, value_ptr((vec2)draw_position(bodies[i].pos)));
@@ -155,7 +175,7 @@ bool setup()
 					time_left -= DELTA_TIME;
 
 					// Only write to gif for the first test
-					if (test == 1)
+					if (test == 0)
 					{
 						// Get image data
 						glReadPixels(0, 0, renderer::get_screen_width(), renderer::get_screen_height(), GL_RGBA, GL_UNSIGNED_BYTE, data.get());
@@ -164,9 +184,21 @@ bool setup()
 					}
 				}
 				cout << "Test " << test << " complete. Average time spent calculating forces per frame: " << total_time / (double)iterations << endl;
-				f << total_time / (double)iterations << ",";
+				if (test > 0)
+				{
+					f << total_time / (double)iterations << ",";
+					if (ALL_FRAME_TIMES)
+					{
+						stringstream ss;
+						ss << "times_n" << n_of_bodies << "_c" << chunk << "_t" << test << ".txt";
+						ofstream f_times(ss.str(), ofstream::out);
+						for (double t : all_times)
+							f_times << t << endl;
+						f_times.close();
+					}
+				}
 
-				if (test == 1)
+				if (test == 0)
 				{
 					// Saves the mass and final positions of the particles in a file
 					ofstream f_final_pos("positions_" + to_string(n_of_bodies) + ".csv", ofstream::out);

@@ -1,7 +1,7 @@
 #pragma once
 
 // Simulation parameters
-#define N_BODIES 500 // Number of bodies simulated
+#define N_BODIES 10 // Number of bodies simulated
 #define DURATION 5.0 // Duration for the simulation
 #define DELTA_TIME 0.01 // duration of a single step
 #define G_CONSTANT 4.302e-3 // Gravitational constant measured in - pc / M * (km/s)(km/s)
@@ -16,6 +16,9 @@
 
 // Testing parameters
 #define RANDOM_SEED 99 // Seed used to get pseudo-random numbers
-#define NUMBER_OF_TESTS 50
-#define BODY_INCREMENT 200 // How many bodies to add for each test
+#define NUMBER_OF_TESTS 20
+#define BODY_INCREMENT 750 // How many bodies to add for each test
 #define N_BODY_INCREMENTS 5 // How many times the number of bodies is incremented
+#define MAX_THREAD_SHARING 125 // Maximum bodies calculated in single GPU thread
+#define SHARING_MULTIPLIER 5 // More bodies per thread by this amount when testing
+#define VALIDATION_OUTPUT true // Whether to output a gif and final positions or not

@@ -46,7 +46,7 @@ target_sources(cuda_stuff PRIVATE ${CMAKE_SOURCE_DIR}/CUDA_parallel/CUDA_paralle
 
 #### CUDA_PARALLEL implementation ####
 file(GLOB_RECURSE SOURCES2 CUDA_parallel/*.cpp CUDA_parallel/*.h lib/gif/*.h)
-add_executable(CUDA_PARALLEL ${SOURCES2})
+CUDA_ADD_EXECUTABLE(CUDA_PARALLEL ${SOURCES2})
 target_include_directories(CUDA_PARALLEL PRIVATE ${GRAPHICS} ${GIF_ENCODER})
 target_link_libraries(CUDA_PARALLEL enu_graphics_framework cuda_stuff)
 

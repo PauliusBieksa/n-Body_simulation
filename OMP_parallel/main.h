@@ -16,7 +16,9 @@
 
 // Testing parameters
 #define RANDOM_SEED 99 // Seed used to get pseudo-random numbers
-#define NUMBER_OF_TESTS 50
+#define NUMBER_OF_TESTS 20
 #define BODY_INCREMENT 750 // How many bodies to add for each test
 #define N_BODY_INCREMENTS 5 // How many times the number of bodies is incremented
 #define MAX_CHUNK_SIZE 64 // Maximum scheduling chunk size for a parallel for loop
+#define VALIDATION_OUTPUT true // Whether to output a gif and final positions or not
+#define ALL_FRAME_TIMES false // Whether to output times for individual whysics frames
