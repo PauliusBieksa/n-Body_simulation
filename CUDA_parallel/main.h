@@ -1,7 +1,7 @@
 #pragma once
 
 // Simulation parameters
-#define N_BODIES 10 // Number of bodies simulated
+#define N_BODIES 1000 // Number of bodies simulated
 #define DURATION 5.0 // Duration for the simulation
 #define DELTA_TIME 0.01 // duration of a single step
 #define G_CONSTANT 4.302e-3 // Gravitational constant measured in - pc / M * (km/s)(km/s)
