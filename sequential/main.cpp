@@ -138,7 +138,7 @@ bool setup()
 				{
 					bodies[i].step(DELTA_TIME);
 					// Only render for first test
-					if (test == 1)
+					if (MAKE_GIFS && test == 1)
 					{
 						// Render each body
 						glUniform2fv(eff.get_uniform_location("pos"), 1, value_ptr((vec2)draw_position(bodies[i].pos)));
@@ -149,7 +149,7 @@ bool setup()
 				time_left -= DELTA_TIME;
 
 				// Only write to gif for the first test
-				if (test == 1)
+				if (MAKE_GIFS && test == 1)
 				{
 					// Get image data
 					glReadPixels(0, 0, renderer::get_screen_width(), renderer::get_screen_height(), GL_RGBA, GL_UNSIGNED_BYTE, data.get());
@@ -160,10 +160,10 @@ bool setup()
 			cout << "Test " << test << " complete. Average time spent calculating forces per frame: " << total_time / (double)iterations << endl;
 			f << total_time / (double)iterations << ",";
 
-			if (test == 1)
+			if (MAKE_GIFS && test == 1)
 			{
 				// Saves the mass and final positions of the particles in a file
-				ofstream f_final_pos("positions_" + to_string(n_of_bodies) + ".csv", ofstream::out);
+				ofstream f_final_pos("seq_positions_" + to_string(n_of_bodies) + ".csv", ofstream::out);
 				f_final_pos << "x, y, mass" << endl;
 				for (int i = 0; i < bodies.size(); i++)
 					f_final_pos << bodies[i].pos.x << ", " << bodies[i].pos.y << ", " << bodies[i].mass << endl;

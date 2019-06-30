@@ -16,6 +16,7 @@
 
 // Testing parameters
 #define RANDOM_SEED 99 // Seed used to get pseudo-random numbers
-#define NUMBER_OF_TESTS 50
+#define NUMBER_OF_TESTS 20
 #define BODY_INCREMENT 750 // How many bodies to add for each test
 #define N_BODY_INCREMENTS 5 // How many times the number of bodies is incremented
+#define MAKE_GIFS true // Wheather to make gifs or not
